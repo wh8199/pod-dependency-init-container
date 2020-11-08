@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"strconv"
 	"time"
@@ -39,7 +40,7 @@ func main() {
 	for i := 0; i < retryCount; i++ {
 		podArr := make([]corev1.Pod, 0, 0)
 		podList, err := kubeClient.CoreV1().Pods(nsName).
-			List(metav1.ListOptions{
+			List(context.TODO(), metav1.ListOptions{
 				LabelSelector: podLabels,
 			})
 		if err != nil {
