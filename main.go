@@ -2,40 +2,49 @@ package main
 
 import (
 	"os"
-	"strings"
+	"strconv"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/wh8199/log"
 )
 
 func main() {
+	logging := log.NewLogging("main", log.INFO_LEVEL, 2)
+
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		klog.Fatalf("Error building kubecokubeClientnfig: %s", err.Error())
+		logging.Fatalf("Error building kubecokubeClientnfig: %s", err.Error())
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		klog.Fatalf("Error building kubernetes clientset: %s", err.Error())
+		logging.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
 	nsName := os.Getenv("NAMESPACE_NAME")
-	labels := strings.Split(os.Getenv("POD_LABELS"), ",")
-	klog.Info(labels)
+	podLabels := os.Getenv("POD_LABELS")
+	retryCountEnv := os.Getenv("MAX_RETRY")
 
-	podArr := make([]corev1.Pod, 0, 0)
+	retryCount := 5
+	if temp, err := strconv.Atoi(retryCountEnv); err == nil {
+		retryCount = temp
+	}
 
-	for _, label := range labels {
+	for i := 0; i < retryCount; i++ {
+		podArr := make([]corev1.Pod, 0, 0)
 		podList, err := kubeClient.CoreV1().Pods(nsName).
 			List(metav1.ListOptions{
-				LabelSelector: label,
+				LabelSelector: podLabels,
 			})
 		if err != nil {
-			klog.Fatalf("Fail to list all pods: %s", err.Error())
+			logging.Warnf("Fail to list all pods: %s", err.Error())
+			continue
 		}
 
 		for _, pod := range podList.Items {
@@ -43,11 +52,15 @@ func main() {
 				podArr = append(podArr, pod)
 			}
 		}
+
+		if len(podArr) > 0 {
+			os.Exit(0)
+		}
+
+		time.Sleep(2 * time.Second)
 	}
 
-	if len(podArr) > 0 {
-		os.Exit(0)
-	}
+	logging.Info("Dependency pods are not running, restart again")
 
 	os.Exit(1)
 }
