@@ -1,17 +1,17 @@
-TARGET := app
+TARGET := pod-dependency-init-container
 SRCDIR := $(PWD)
-CC := go
-REPO := registry.cn-hangzhou.aliyuncs.com/wh819971938/
-TAG := 1.0.0.1
+CC := CGO_ENABLED=0 go
+REPO := wh8199/
+TAG := 1.0.1
 LFLAGS := -w -s
 
-all: pod-dependency-init-container-bin
+all: build image
 
-%-image:
-	sudo docker build -t $(REPO)$*:$(TAG) -f ./Dockerfile .
+image: 
+	sudo docker build -t $(REPO)$(TARGET):$(TAG) -f ./Dockerfile .
 
-%-bin:
-	$(CC) build -ldflags '$(LFLAGS)' -o $(SRCDIR)/bin/$* $(SRCDIR)/main.go
+build:
+	$(CC) build -ldflags '$(LFLAGS)' -o $(SRCDIR)/bin/$(TARGET) $(SRCDIR)/main.go
 
 .PHONY:clean
 clean:
